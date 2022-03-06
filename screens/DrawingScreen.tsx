@@ -1,5 +1,8 @@
 import React, {useCallback, useLayoutEffect} from 'react';
-import {Button, StyleSheet, Text, View} from 'react-native';
+import {Alert, Button, NativeModules, StyleSheet} from 'react-native';
+import {useRecoilState} from 'recoil';
+import CanvasView from '../components/CanvasView';
+import {drawingsListState} from '../store';
 import {RootStackScreenProps} from '../types';
 
 export default function DrawingScreen({
@@ -7,33 +10,59 @@ export default function DrawingScreen({
   route,
 }: RootStackScreenProps<'Drawing'>) {
   const {id} = route.params;
+  const {RNTCanvasManager} = NativeModules;
+  const [drawings, setDrawings] = useRecoilState(drawingsListState);
 
-  const saveDrawing = useCallback(() => {
-    navigation.goBack();
-  }, [navigation]);
+  const saveCanvas = useCallback(async () => {
+    try {
+      const data = await RNTCanvasManager.getDrawingData();
+      // console.log(data);
+      setDrawings(
+        drawings.map(drawing =>
+          drawing.id === id
+            ? {
+                ...drawing,
+                data,
+              }
+            : drawing,
+        ),
+      );
+      navigation.goBack();
+    } catch (err) {
+      Alert.alert('Failed to Save', (err as Error).message);
+      console.error(err);
+    }
+  }, [RNTCanvasManager, drawings, id, navigation, setDrawings]);
+
+  const setDrawingData = useCallback(
+    async (base64EncodedData: string) => {
+      try {
+        await RNTCanvasManager.setDrawingData(base64EncodedData);
+      } catch (err) {
+        Alert.alert('Failed to Init', (err as Error).message);
+        console.error(err);
+      }
+    },
+    [RNTCanvasManager],
+  );
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerRight: () => <Button title="Save" onPress={saveDrawing} />,
+      headerRight: () => (
+        <>
+          <Button title="Clear" onPress={() => setDrawingData('')} />
+          <Button title="Save" onPress={saveCanvas} />
+        </>
+      ),
     });
-  }, [navigation, saveDrawing]);
+    setDrawingData(drawings.filter(it => it.id === id)?.[0]?.data);
+  }, [drawings, id, navigation, saveCanvas, setDrawingData]);
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Draw! {id}</Text>
-    </View>
-  );
+  return <CanvasView style={styles.canvas} />;
 }
 
 const styles = StyleSheet.create({
-  container: {
+  canvas: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
   },
 });
