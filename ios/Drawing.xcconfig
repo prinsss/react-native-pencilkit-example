@@ -1,0 +1,15 @@
+//
+//  Drawing.xcconfig
+//  Drawing
+//
+//  Created by Prin S. on 2022/3/6.
+//
+
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+// See: https://samwize.com/2020/11/20/using-xcconfig-to-configure-to-your-developer-account/
+DEVELOPMENT_TEAM = ORIGINAL_TEAM_ID
+ORGANIZATION_IDENTIFIER = com.originalcompany
+
+#include? "DeveloperSettings.xcconfig"
