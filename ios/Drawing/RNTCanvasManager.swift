@@ -11,33 +11,27 @@ import PencilKit
 @available(iOS 14.0, *)
 @objc(RNTCanvasManager)
 class RNTCanvasManager: RCTViewManager {
-  var drawingData = Data()
-  var drawingChanged: (Data) -> Void = {_ in}
 
-  lazy var canvas: PKCanvasView = {
+  let canvasView: PKCanvasView = {
     let view = PKCanvasView()
     view.drawingPolicy = .anyInput
-    view.minimumZoomScale = 1
-    view.maximumZoomScale = 1
+    view.minimumZoomScale = 0.5
+    view.maximumZoomScale = 3
     view.translatesAutoresizingMaskIntoConstraints = false
-    view.delegate = self
     return view
   }()
 
-  lazy var toolPicker: PKToolPicker = {
-    let toolPicker = PKToolPicker()
-    return toolPicker
-  }()
+  let toolPicker = PKToolPicker()
 
   @objc
   func setDrawingData(_ base64: String,
                       resolver resolve: RCTPromiseResolveBlock,
                       rejecter reject: RCTPromiseRejectBlock) {
-    print("setDrawingData", base64)
+    print("setDrawingData", base64.count)
 
     if (base64 == "") {
-      self.canvas.drawing = PKDrawing()
-      print("Drawing cleared")
+      self.canvasView.drawing = PKDrawing()
+      print("Canvas cleared")
       resolve(true)
       return
     }
@@ -48,7 +42,8 @@ class RNTCanvasManager: RCTViewManager {
     }
 
     do {
-      self.canvas.drawing = try PKDrawing.init(data: dataDecoded)
+      self.canvasView.drawing = try PKDrawing.init(data: dataDecoded)
+      self.canvasView.zoomScale = 1
       print("New drawing loaded")
       resolve(true)
     } catch {
@@ -59,8 +54,9 @@ class RNTCanvasManager: RCTViewManager {
   @objc
   func getDrawingData(_ resolve: RCTPromiseResolveBlock,
                       rejecter reject: RCTPromiseRejectBlock) {
-    print("getDrawingData", drawingData)
-    resolve(drawingData.base64EncodedString())
+    let data = canvasView.drawing.dataRepresentation()
+    print("getDrawingData", data.count)
+    resolve(data.base64EncodedString())
   }
 
   @objc
@@ -69,19 +65,21 @@ class RNTCanvasManager: RCTViewManager {
   }
 
   override func view() -> UIView! {
-    toolPicker.setVisible(true, forFirstResponder: canvas)
-    toolPicker.addObserver(canvas)
+    print("CanvasView initializing")
 
-    drawingChanged = { data in
-      self.drawingData = data
-      print("drawingData updated")
-    }
-
+    // TODO: undo and redo
+    // TODO: accept data as props
     // if let drawing = try? PKDrawing(data: drawingData) {
     //   canvas.drawing = drawing
     // }
 
-    return canvas
+    canvasView.delegate = self
+    toolPicker.addObserver(self)
+    toolPicker.addObserver(canvasView)
+    toolPicker.setVisible(true, forFirstResponder: canvasView)
+    canvasView.becomeFirstResponder()
+
+    return canvasView
   }
 }
 
@@ -91,7 +89,6 @@ extension RNTCanvasManager: PKCanvasViewDelegate, PKToolPickerObserver {
 
   func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
     print("canvasViewDrawingDidChange")
-    drawingChanged(canvasView.drawing.dataRepresentation())
   }
 
   func toolPickerSelectedToolDidChange(_ toolPicker: PKToolPicker) {
